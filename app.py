@@ -30,12 +30,12 @@ with st.sidebar:
     # Model selector — switch without touching code
     # Changes take effect on the next message sent
     model_choice = st.radio(
-        "Model",
+        "Mode",
         options=["llama3.2:3b", "mistral"],
         index=0,
-        help="LLaMA 3.2 3B is faster. Mistral 7B is slower but higher quality.",
+        format_func=lambda x: "⚡ Quick Answer (LLaMA 3.2 3B)" if x == "llama3.2:3b" else "🧠 Deep Thinking (Mistral 7B)",
+        help="Quick Answer is faster. Deep Thinking is slower but more thorough.",
     )
-    st.caption("⚡ Fast" if model_choice == "llama3.2:3b" else "🎯 Quality")
 
     st.divider()
     st.markdown("**Example questions:**")
@@ -49,7 +49,7 @@ with st.sidebar:
         st.session_state.messages = []
         st.session_state.chat_history = []
         st.rerun()
-    st.caption(f"Powered by {model_choice} + RAG")
+    st.caption("Powered by Ollama + RAG")
 
 # ── Load vector store (cached — runs once, not on every message) ───────────────
 # st.cache_resource tells Streamlit: "load this once and reuse it across
