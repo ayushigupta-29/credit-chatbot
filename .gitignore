@@ -1,0 +1,17 @@
+# Virtual environment
+venv_credit_chatbot/
+
+# ChromaDB — generated, rebuild locally by running src/ingest.py
+chroma_db/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# macOS
+.DS_Store
+
+# Environment variables (if added later)
+.env
