@@ -29,33 +29,17 @@ st.markdown("""
     padding: 4px 8px;
 }
 
-/* User avatar circle — target the parent of the Material icon span */
+/* User avatar circle — target parent of the Material icon */
 [data-testid="stChatMessage"][style*="row-reverse"] :has(> [data-testid="stIconMaterial"]) {
     background-color: #2563eb !important;
 }
-/* Icon colour inside the circle */
 [data-testid="stChatMessage"][style*="row-reverse"] [data-testid="stIconMaterial"] {
-    color: white !important;
-}
-
-/* Input box — blue focus ring only, nothing else touched */
-[data-testid="stTextInput"] input:focus {
-    border-color: #2563eb !important;
-    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25) !important;
-    outline: none !important;
-}
-
-/* Send button styling */
-[data-testid="stFormSubmitButton"] button {
-    border-radius: 8px !important;
-    background-color: #2563eb !important;
     color: white !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
 # ── Constants ──────────────────────────────────────────────────────────────────
-INPUT_KEY = "chat_input_text"
 EXAMPLES = [
     "What is a good credit score?",
     "How can I improve my CIBIL score?",
@@ -69,6 +53,8 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
+if "auto_question" not in st.session_state:
+    st.session_state.auto_question = ""
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -90,19 +76,17 @@ with st.sidebar:
     st.divider()
     st.markdown("**Example questions:**")
 
+    # Clicking an example auto-submits it as a question (like ChatGPT)
     for example in EXAMPLES:
-        current_input = st.session_state.get(INPUT_KEY, "")
-        is_selected = current_input == example
-        label = f"✅ {example}" if is_selected else f"💬 {example}"
-        if st.button(label, key=f"ex_{example[:30]}", use_container_width=True):
-            st.session_state[INPUT_KEY] = "" if is_selected else example
+        if st.button(f"💬 {example}", key=f"ex_{example[:30]}", use_container_width=True):
+            st.session_state.auto_question = example
             st.rerun()
 
     st.divider()
     if st.button("🗑️ Clear conversation", use_container_width=True):
         st.session_state.messages = []
         st.session_state.chat_history = []
-        st.session_state[INPUT_KEY] = ""
+        st.session_state.auto_question = ""
         st.rerun()
     st.caption("Powered by Ollama + RAG")
 
@@ -119,7 +103,7 @@ st.title("💳 Credit Chatbot")
 st.caption("Your credit education assistant — ask me anything about credit in India.")
 st.divider()
 
-# ── Chat messages — always rendered ABOVE the input form ───────────────────────
+# ── Chat messages ──────────────────────────────────────────────────────────────
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
@@ -128,33 +112,25 @@ for message in st.session_state.messages:
                 for s in message["sources"]:
                     st.caption(f"**{s['file']}** — {s['preview']}")
 
-# Placeholder for streaming response — sits above the form in the DOM.
-# During streaming, content fills this slot (above the input).
-# After rerun, this is empty and the new messages appear in the loop above.
+# Placeholder for streaming — sits above the sticky input bar
 stream_slot = st.empty()
 
-# ── Input form — always stays at the bottom ────────────────────────────────────
-with st.form("chat_form", clear_on_submit=True):
-    col1, col2 = st.columns([11, 1])
-    with col1:
-        question = st.text_input(
-            "",
-            key=INPUT_KEY,
-            placeholder="Ask a question about credit...",
-            label_visibility="collapsed",
-        )
-    with col2:
-        submitted = st.form_submit_button("➤", use_container_width=True)
+# ── Input — st.chat_input is natively sticky at the bottom ────────────────────
+typed_question = st.chat_input("Ask a question about credit...")
 
-# ── Handle submission ──────────────────────────────────────────────────────────
-if submitted and question:
+# Resolve question source: typed input takes priority, else auto from sidebar
+question = typed_question or st.session_state.auto_question or None
+if st.session_state.auto_question:
+    st.session_state.auto_question = ""   # clear after consuming
+
+# ── Handle question ────────────────────────────────────────────────────────────
+if question:
     words = question.strip().split()
     if len(words) < 2:
-        st.warning("Please type at least 2 words to ask a question.")
+        st.warning("Please enter at least 2 words.")
     else:
         st.session_state.messages.append({"role": "user", "content": question})
 
-        # Stream into the slot ABOVE the form — form stays at the bottom throughout
         with stream_slot.container():
             with st.chat_message("user"):
                 st.markdown(question)
@@ -179,7 +155,6 @@ if submitted and question:
                             st.caption(f"**{s['file']}** — {s['preview']}")
 
         full_answer = "".join(collected_tokens)
-
         st.session_state.messages.append({
             "role": "assistant",
             "content": full_answer,
@@ -189,31 +164,31 @@ if submitted and question:
             "user": question,
             "assistant": full_answer,
         })
-
-        # Rerun — stream_slot clears, messages loop above form shows everything correctly
         st.rerun()
 
-# ── Auto-focus: typing anywhere goes to the input (like ChatGPT) ───────────────
+# ── Auto-focus: typing anywhere goes to the chat input (like ChatGPT) ─────────
+# Only on initial load — no MutationObserver so sidebar button clicks are
+# never intercepted.
 components.html("""
 <script>
     const doc = window.parent.document;
 
-    function focusInput() {
-        const input = doc.querySelector('input[type="text"]');
-        if (input && doc.activeElement !== input) input.focus();
+    function focusChatInput() {
+        const input = doc.querySelector('textarea[data-testid="stChatInputTextArea"]');
+        if (input) input.focus();
     }
 
-    setTimeout(focusInput, 300);
+    // Focus once on load
+    setTimeout(focusChatInput, 400);
 
-    new MutationObserver(() => setTimeout(focusInput, 100))
-        .observe(doc.body, { childList: true, subtree: true });
-
+    // Redirect bare keypresses to the chat input — but NEVER if a button,
+    // link, or interactive element is focused or being clicked
     doc.addEventListener('keydown', function(e) {
         const active = doc.activeElement;
-        const isTyping = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
-        if (!isTyping && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-            const input = doc.querySelector('input[type="text"]');
-            if (input) input.focus();
+        const tag = active ? active.tagName : '';
+        const isInteractive = ['INPUT', 'TEXTAREA', 'BUTTON', 'A', 'SELECT'].includes(tag);
+        if (!isInteractive && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            focusChatInput();
         }
     });
 </script>
