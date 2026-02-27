@@ -47,13 +47,6 @@ st.markdown("""
     color: white !important;
 }
 
-/* Nuclear fallback: any element whose only child is the face icon */
-:has(> [data-testid="stIconMaterial"]) {
-    background-color: #2563eb !important;
-}
-[data-testid="stIconMaterial"] {
-    color: white !important;
-}
 </style>
 """, unsafe_allow_html=True)
 
