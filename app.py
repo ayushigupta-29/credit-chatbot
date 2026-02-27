@@ -29,13 +29,29 @@ st.markdown("""
     padding: 4px 8px;
 }
 
-/* User avatar circle — row-reverse may be on stChatMessage or a child div */
-[data-testid="stChatMessage"][style*="row-reverse"] :has(> [data-testid="stIconMaterial"]),
-[data-testid="stChatMessage"] [style*="row-reverse"] :has(> [data-testid="stIconMaterial"]) {
+/* User avatar — try all known Streamlit avatar testids */
+[data-testid="stChatMessageAvatarUser"] {
     background-color: #2563eb !important;
 }
-[data-testid="stChatMessage"][style*="row-reverse"] [data-testid="stIconMaterial"],
-[data-testid="stChatMessage"] [style*="row-reverse"] [data-testid="stIconMaterial"] {
+[data-testid="stChatMessageAvatarUser"] [data-testid="stIconMaterial"] {
+    color: white !important;
+}
+
+/* Fallback: avatar circle is parent of the face icon */
+[data-testid="stChatMessage"] [style*="row-reverse"] :has(> [data-testid="stIconMaterial"]),
+[data-testid="stChatMessage"][style*="row-reverse"] :has(> [data-testid="stIconMaterial"]) {
+    background-color: #2563eb !important;
+}
+[data-testid="stChatMessage"] [style*="row-reverse"] [data-testid="stIconMaterial"],
+[data-testid="stChatMessage"][style*="row-reverse"] [data-testid="stIconMaterial"] {
+    color: white !important;
+}
+
+/* Nuclear fallback: any element whose only child is the face icon */
+:has(> [data-testid="stIconMaterial"]) {
+    background-color: #2563eb !important;
+}
+[data-testid="stIconMaterial"] {
     color: white !important;
 }
 </style>
