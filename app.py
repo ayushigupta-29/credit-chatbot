@@ -29,11 +29,12 @@ st.markdown("""
     padding: 4px 8px;
 }
 
-/* User avatar icon — force blue */
-[data-testid="stChatMessage"][style*="row-reverse"] [data-testid="stChatMessageAvatarUser"],
-[data-testid="stChatMessage"][style*="row-reverse"] .stAvatar,
-[data-testid="stChatMessage"][style*="row-reverse"] [class*="avatar"] {
+/* User avatar circle — target the parent of the Material icon span */
+[data-testid="stChatMessage"][style*="row-reverse"] :has(> [data-testid="stIconMaterial"]) {
     background-color: #2563eb !important;
+}
+/* Icon colour inside the circle */
+[data-testid="stChatMessage"][style*="row-reverse"] [data-testid="stIconMaterial"] {
     color: white !important;
 }
 
