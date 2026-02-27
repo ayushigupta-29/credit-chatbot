@@ -119,6 +119,11 @@ for message in st.session_state.messages:
                 for s in message["sources"]:
                     st.caption(f"**{s['file']}** — {s['preview']}")
 
+# Placeholder for streaming response — sits above the form in the DOM.
+# During streaming, content fills this slot (above the input).
+# After rerun, this is empty and the new messages appear in the loop above.
+stream_slot = st.empty()
+
 # ── Input form — always stays at the bottom ────────────────────────────────────
 with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([11, 1])
@@ -138,37 +143,34 @@ if submitted and question:
     if len(words) < 2:
         st.warning("Please type at least 2 words to ask a question.")
     else:
-        # Save user message to session state
         st.session_state.messages.append({"role": "user", "content": question})
 
-        # Stream the response into a temporary placeholder
-        # The placeholder sits below the form during streaming,
-        # then st.rerun() at the end moves everything above the form cleanly
-        with st.chat_message("user"):
-            st.markdown(question)
+        # Stream into the slot ABOVE the form — form stays at the bottom throughout
+        with stream_slot.container():
+            with st.chat_message("user"):
+                st.markdown(question)
 
-        with st.chat_message("assistant"):
-            collected_tokens = []
-            sources = []
+            with st.chat_message("assistant"):
+                collected_tokens = []
+                sources = []
 
-            def token_generator():
-                for chunk in ask_stream(db, question, st.session_state.chat_history, model=model_choice):
-                    if isinstance(chunk, list):
-                        sources.extend(chunk)
-                    else:
-                        collected_tokens.append(chunk)
-                        yield chunk
+                def token_generator():
+                    for chunk in ask_stream(db, question, st.session_state.chat_history, model=model_choice):
+                        if isinstance(chunk, list):
+                            sources.extend(chunk)
+                        else:
+                            collected_tokens.append(chunk)
+                            yield chunk
 
-            st.write_stream(token_generator())
+                st.write_stream(token_generator())
 
-            if sources:
-                with st.expander("📄 Sources used", expanded=False):
-                    for s in sources:
-                        st.caption(f"**{s['file']}** — {s['preview']}")
+                if sources:
+                    with st.expander("📄 Sources used", expanded=False):
+                        for s in sources:
+                            st.caption(f"**{s['file']}** — {s['preview']}")
 
         full_answer = "".join(collected_tokens)
 
-        # Save to session state
         st.session_state.messages.append({
             "role": "assistant",
             "content": full_answer,
@@ -179,7 +181,7 @@ if submitted and question:
             "assistant": full_answer,
         })
 
-        # Rerun so new messages appear above the form in the correct order
+        # Rerun — stream_slot clears, messages loop above form shows everything correctly
         st.rerun()
 
 # ── Auto-focus: typing anywhere goes to the input (like ChatGPT) ───────────────

@@ -1,0 +1,5 @@
+[theme]
+primaryColor = "#2563eb"        # blue — replaces Streamlit's default red everywhere
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f1f5f9"
+textColor = "#1e293b"
