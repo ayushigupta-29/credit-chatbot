@@ -9,7 +9,7 @@ import sys
 import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
-from rag_pipeline import load_vector_store, ask_stream
+from rag_pipeline import load_vector_store, ask_stream, LLM_MODEL
 
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -26,6 +26,18 @@ with st.sidebar:
         "**loans**, and **credit reports** in India."
     )
     st.divider()
+
+    # Model selector — switch without touching code
+    # Changes take effect on the next message sent
+    model_choice = st.radio(
+        "Model",
+        options=["llama3.2:3b", "mistral"],
+        index=0,
+        help="LLaMA 3.2 3B is faster. Mistral 7B is slower but higher quality.",
+    )
+    st.caption("⚡ Fast" if model_choice == "llama3.2:3b" else "🎯 Quality")
+
+    st.divider()
     st.markdown("**Example questions:**")
     st.markdown("- What is a good credit score?")
     st.markdown("- How can I improve my CIBIL score?")
@@ -37,7 +49,7 @@ with st.sidebar:
         st.session_state.messages = []
         st.session_state.chat_history = []
         st.rerun()
-    st.caption("Powered by Mistral 7B + RAG")
+    st.caption(f"Powered by {model_choice} + RAG")
 
 # ── Load vector store (cached — runs once, not on every message) ───────────────
 # st.cache_resource tells Streamlit: "load this once and reuse it across
@@ -92,7 +104,7 @@ if question := st.chat_input("Ask a question about credit..."):
             Wraps ask_stream() to separate text tokens from the sources object.
             Streamlit's st.write_stream() expects a generator of strings only.
             """
-            for chunk in ask_stream(db, question, st.session_state.chat_history):
+            for chunk in ask_stream(db, question, st.session_state.chat_history, model=model_choice):
                 if isinstance(chunk, list):
                     # This is the sources payload yielded at the end
                     sources.extend(chunk)

@@ -6,7 +6,7 @@ Handles the full retrieval-augmented generation flow:
   2. Convert user question to embedding
   3. Retrieve top-k most relevant chunks
   4. Build a prompt (system + context + question)
-  5. Send to Mistral via Ollama
+  5. Send to LLM via Ollama
   6. Return answer + source documents
 
 This module is imported by app.py (the Streamlit UI).
@@ -26,8 +26,13 @@ CHROMA_PATH = os.path.join(BASE_DIR, "chroma_db")
 
 # ── Model settings ─────────────────────────────────────────────────────────────
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
-LLM_MODEL       = "mistral"       # must match what you pulled via `ollama pull`
-TOP_K           = 4               # number of chunks to retrieve per query
+
+# Toggle between models:
+#   "llama3.2:3b"  — fast, good for development and testing (~4-5s per response)
+#   "mistral"      — slower, higher quality for demos and production (~12-15s per response)
+LLM_MODEL = "llama3.2:3b"
+
+TOP_K = 4               # number of chunks to retrieve per query
 
 # ── System Prompt ──────────────────────────────────────────────────────────────
 # This is the most important piece of prompt engineering in the whole project.
@@ -140,7 +145,7 @@ def ask(db, question: str, chat_history: list = []) -> tuple[str, list[dict]]:
     return answer, sources
 
 
-def ask_stream(db, question: str, chat_history: list = []):
+def ask_stream(db, question: str, chat_history: list = [], model: str = LLM_MODEL):
     """
     Streaming version of ask(). Yields text chunks as Mistral generates them.
     Used by Streamlit's st.write_stream() for a live typing effect.
@@ -151,7 +156,7 @@ def ask_stream(db, question: str, chat_history: list = []):
     context, sources = retrieve_context(db, question)
     messages = build_messages(context, question, chat_history)
 
-    stream = ollama.chat(model=LLM_MODEL, messages=messages, stream=True)
+    stream = ollama.chat(model=model, messages=messages, stream=True)
 
     for chunk in stream:
         token = chunk["message"]["content"]
