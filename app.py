@@ -22,71 +22,25 @@ st.set_page_config(
 # ── Custom CSS ─────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-/* Blue background for user chat messages
-   Streamlit renders user messages with flex-direction: row-reverse (avatar on right) */
-[data-testid="stChatMessage"][style*="row-reverse"],
+/* Blue background for user chat messages */
 [data-testid="stChatMessage"][style*="row-reverse"] {
     background-color: rgba(37, 99, 235, 0.12) !important;
     border-radius: 12px;
     padding: 4px 8px;
 }
 
-/* Style the text input to look more like a chat bar */
-[data-testid="stForm"] [data-testid="stTextInput"] input {
-    border-radius: 24px !important;
-    padding: 12px 20px !important;
-    font-size: 15px !important;
-    border: 1.5px solid #cbd5e1 !important;
-}
-[data-testid="stForm"] [data-testid="stTextInput"] input:focus {
+/* Input box — blue focus ring only, nothing else touched */
+[data-testid="stTextInput"] input:focus {
     border-color: #2563eb !important;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25) !important;
     outline: none !important;
 }
 
-/* Override Streamlit's default red/pink focus ring everywhere */
-*:focus {
-    outline-color: #2563eb !important;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
-}
-input:focus, textarea:focus, [role="textbox"]:focus {
-    border-color: #2563eb !important;
-    outline-color: #2563eb !important;
-}
-
-/* Send button */
-[data-testid="stForm"] button[kind="primaryFormSubmit"] {
-    border-radius: 24px !important;
+/* Send button styling */
+[data-testid="stFormSubmitButton"] button {
+    border-radius: 8px !important;
     background-color: #2563eb !important;
     color: white !important;
-    font-size: 18px !important;
-    height: 44px !important;
-    margin-top: 4px !important;
-}
-
-/* Example question buttons in sidebar */
-section[data-testid="stSidebar"] .stButton button {
-    text-align: left !important;
-    border-radius: 8px !important;
-    font-size: 13px !important;
-    padding: 6px 10px !important;
-    border: 1px solid #e2e8f0 !important;
-    background: white !important;
-    color: #1e293b !important;
-    white-space: normal !important;
-    height: auto !important;
-}
-section[data-testid="stSidebar"] .stButton button:hover {
-    background: #eff6ff !important;
-    border-color: #2563eb !important;
-    color: #2563eb !important;
-}
-/* Selected example button */
-section[data-testid="stSidebar"] .stButton button[data-selected="true"] {
-    background: #eff6ff !important;
-    border-color: #2563eb !important;
-    color: #2563eb !important;
-    font-weight: 600 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -127,20 +81,12 @@ with st.sidebar:
     st.divider()
     st.markdown("**Example questions:**")
 
-    # Clickable example questions — clicking pre-fills the input.
-    # Clicking the same one again clears the input (toggle behaviour).
     for example in EXAMPLES:
         current_input = st.session_state.get(INPUT_KEY, "")
         is_selected = current_input == example
         label = f"✅ {example}" if is_selected else f"💬 {example}"
-
         if st.button(label, key=f"ex_{example[:30]}", use_container_width=True):
-            if is_selected:
-                # Same example clicked again — clear the input
-                st.session_state[INPUT_KEY] = ""
-            else:
-                # Different example — pre-fill input with this question
-                st.session_state[INPUT_KEY] = example
+            st.session_state[INPUT_KEY] = "" if is_selected else example
             st.rerun()
 
     st.divider()
@@ -151,7 +97,7 @@ with st.sidebar:
         st.rerun()
     st.caption("Powered by Ollama + RAG")
 
-# ── Load vector store (cached) ────────────────────────────────────────────────
+# ── Load vector store ──────────────────────────────────────────────────────────
 @st.cache_resource
 def get_vector_store():
     with st.spinner("Loading knowledge base..."):
@@ -164,7 +110,7 @@ st.title("💳 Credit Chatbot")
 st.caption("Your credit education assistant — ask me anything about credit in India.")
 st.divider()
 
-# ── Display existing chat messages ─────────────────────────────────────────────
+# ── Chat messages — always rendered ABOVE the input form ───────────────────────
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
@@ -173,11 +119,7 @@ for message in st.session_state.messages:
                 for s in message["sources"]:
                     st.caption(f"**{s['file']}** — {s['preview']}")
 
-# ── Input form ─────────────────────────────────────────────────────────────────
-# Using st.form so we can:
-# (a) pre-fill from example buttons via session state key
-# (b) validate minimum 2 words before sending
-# (c) clear on submit automatically
+# ── Input form — always stays at the bottom ────────────────────────────────────
 with st.form("chat_form", clear_on_submit=True):
     col1, col2 = st.columns([11, 1])
     with col1:
@@ -190,18 +132,21 @@ with st.form("chat_form", clear_on_submit=True):
     with col2:
         submitted = st.form_submit_button("➤", use_container_width=True)
 
-# Minimum 2 words validation
+# ── Handle submission ──────────────────────────────────────────────────────────
 if submitted and question:
     words = question.strip().split()
     if len(words) < 2:
         st.warning("Please type at least 2 words to ask a question.")
     else:
-        # Show user message
+        # Save user message to session state
         st.session_state.messages.append({"role": "user", "content": question})
+
+        # Stream the response into a temporary placeholder
+        # The placeholder sits below the form during streaming,
+        # then st.rerun() at the end moves everything above the form cleanly
         with st.chat_message("user"):
             st.markdown(question)
 
-        # Generate and stream the assistant response
         with st.chat_message("assistant"):
             collected_tokens = []
             sources = []
@@ -222,6 +167,8 @@ if submitted and question:
                         st.caption(f"**{s['file']}** — {s['preview']}")
 
         full_answer = "".join(collected_tokens)
+
+        # Save to session state
         st.session_state.messages.append({
             "role": "assistant",
             "content": full_answer,
@@ -232,37 +179,30 @@ if submitted and question:
             "assistant": full_answer,
         })
 
-# ── Auto-focus input — typing anywhere goes straight to the input ──────────────
-# Uses JS injected into the parent frame (Streamlit components run in an iframe).
-# This mirrors ChatGPT's behaviour where any keypress focuses the input field.
+        # Rerun so new messages appear above the form in the correct order
+        st.rerun()
+
+# ── Auto-focus: typing anywhere goes to the input (like ChatGPT) ───────────────
 components.html("""
 <script>
     const doc = window.parent.document;
 
     function focusInput() {
         const input = doc.querySelector('input[type="text"]');
-        if (input && doc.activeElement !== input) {
-            input.focus();
-        }
+        if (input && doc.activeElement !== input) input.focus();
     }
 
-    // Focus on initial load
     setTimeout(focusInput, 300);
 
-    // Re-focus after any Streamlit rerun (DOM changes)
     new MutationObserver(() => setTimeout(focusInput, 100))
         .observe(doc.body, { childList: true, subtree: true });
 
-    // Redirect any keypress anywhere on the page to the input
     doc.addEventListener('keydown', function(e) {
         const active = doc.activeElement;
         const isTyping = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
-        // Only redirect if user isn't already typing somewhere else
-        if (!isTyping && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+        if (!isTyping && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
             const input = doc.querySelector('input[type="text"]');
-            if (input) {
-                input.focus();
-            }
+            if (input) input.focus();
         }
     });
 </script>
