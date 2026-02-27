@@ -29,6 +29,14 @@ st.markdown("""
     padding: 4px 8px;
 }
 
+/* User avatar icon — force blue */
+[data-testid="stChatMessage"][style*="row-reverse"] [data-testid="stChatMessageAvatarUser"],
+[data-testid="stChatMessage"][style*="row-reverse"] .stAvatar,
+[data-testid="stChatMessage"][style*="row-reverse"] [class*="avatar"] {
+    background-color: #2563eb !important;
+    color: white !important;
+}
+
 /* Input box — blue focus ring only, nothing else touched */
 [data-testid="stTextInput"] input:focus {
     border-color: #2563eb !important;
