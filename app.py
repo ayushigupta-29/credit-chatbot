@@ -29,11 +29,13 @@ st.markdown("""
     padding: 4px 8px;
 }
 
-/* User avatar circle — target parent of the Material icon */
-[data-testid="stChatMessage"][style*="row-reverse"] :has(> [data-testid="stIconMaterial"]) {
+/* User avatar circle — row-reverse may be on stChatMessage or a child div */
+[data-testid="stChatMessage"][style*="row-reverse"] :has(> [data-testid="stIconMaterial"]),
+[data-testid="stChatMessage"] [style*="row-reverse"] :has(> [data-testid="stIconMaterial"]) {
     background-color: #2563eb !important;
 }
-[data-testid="stChatMessage"][style*="row-reverse"] [data-testid="stIconMaterial"] {
+[data-testid="stChatMessage"][style*="row-reverse"] [data-testid="stIconMaterial"],
+[data-testid="stChatMessage"] [style*="row-reverse"] [data-testid="stIconMaterial"] {
     color: white !important;
 }
 </style>
