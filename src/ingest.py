@@ -10,18 +10,23 @@ Re-run it any time you update the knowledge base files.
 
 import os
 import shutil
+import tempfile
 
+from dotenv import load_dotenv
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
+from langchain_core.documents import Document
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
-# __file__ is this script's path. We navigate relative to it so the script works
-# regardless of where you run it from.
-BASE_DIR   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-KB_PATH    = os.path.join(BASE_DIR, "knowledge_base")   # where your .md files live
-CHROMA_PATH = os.path.join(BASE_DIR, "chroma_db")       # where ChromaDB will be saved
+BASE_DIR    = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KB_PATH     = os.path.join(BASE_DIR, "knowledge_base")
+CHROMA_PATH = os.path.join(BASE_DIR, "chroma_db")
+
+# ── Encryption key ─────────────────────────────────────────────────────────────
+load_dotenv(os.path.join(BASE_DIR, ".env"))
+_KB_KEY = os.environ.get("KB_ENCRYPTION_KEY")
 
 # ── Embedding model ────────────────────────────────────────────────────────────
 # all-MiniLM-L6-v2: a small (90MB), fast, high-quality sentence embedding model.
@@ -34,23 +39,50 @@ CHUNK_SIZE    = 500   # maximum characters per chunk
 CHUNK_OVERLAP = 100   # characters shared between consecutive chunks
 
 
+def load_encrypted_doc(enc_path: str) -> Document:
+    """
+    Decrypt a .enc knowledge base file in memory and return a LangChain Document.
+    The decrypted content is never written to disk.
+    """
+    from cryptography.fernet import Fernet
+    if not _KB_KEY:
+        raise RuntimeError("KB_ENCRYPTION_KEY missing from .env — cannot decrypt encrypted KB files.")
+    f = Fernet(_KB_KEY.encode())
+    decrypted = f.decrypt(open(enc_path, "rb").read()).decode("utf-8")
+    return Document(page_content=decrypted, metadata={"source": enc_path.replace(".enc", "")})
+
+
 def load_documents():
     """
-    Load all .md files from the knowledge_base directory.
-    Each file becomes one Document object with the text as content
-    and the file path as metadata.
+    Load all knowledge base files:
+    - Plain .md files → loaded directly
+    - .md.enc and .pdf.enc files → decrypted in memory using KB_ENCRYPTION_KEY
     """
     print(f"\n[1/4] Loading documents from: {KB_PATH}")
 
+    # Load plain markdown files
     loader = DirectoryLoader(
         KB_PATH,
-        glob="**/*.md",         # match all markdown files recursively
-        loader_cls=TextLoader,  # read as plain text
+        glob="*.md",            # top-level .md files only (not encrypted)
+        loader_cls=TextLoader,
         loader_kwargs={"encoding": "utf-8"},
         show_progress=True,
     )
     documents = loader.load()
-    print(f"      Loaded {len(documents)} documents")
+
+    # Load encrypted .enc files (markdown and PDF text)
+    for root, _, files in os.walk(KB_PATH):
+        for fname in files:
+            if fname.endswith(".enc"):
+                enc_path = os.path.join(root, fname)
+                try:
+                    doc = load_encrypted_doc(enc_path)
+                    documents.append(doc)
+                    print(f"      Decrypted: {fname}")
+                except Exception as e:
+                    print(f"      WARN: Could not decrypt {fname}: {e}")
+
+    print(f"      Loaded {len(documents)} documents total ({sum(1 for d in documents if '.enc' not in d.metadata.get('source',''))} plain + {sum(1 for d in documents if '.enc' in d.metadata.get('source',''))} encrypted)")
     return documents
 
 

@@ -13,5 +13,17 @@ __pycache__/
 # macOS
 .DS_Store
 
-# Environment variables (if added later)
+# Environment variables — contains KB_ENCRYPTION_KEY, never commit
 .env
+
+# Decrypted KB files — only .enc versions go in the repo
+knowledge_base/07_score_patterns.md
+knowledge_base/08_bureau_parameters.md
+knowledge_base/data_dictionary/*.pdf
+
+# Notebook outputs
+notebooks/*.csv
+notebooks/*.png
+
+# Scrub data — sensitive, never commit
+scrub_data/
