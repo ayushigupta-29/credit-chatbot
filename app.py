@@ -194,12 +194,22 @@ if st.session_state.user_phone and st.session_state.user_consented is None:
     show_consent_dialog(st.session_state.user_phone)
 
 # ── Load vector store ──────────────────────────────────────────────────────────
+# Cache key includes chroma_db mtime so the store reloads automatically
+# after ingest.py regenerates the collection (new UUID, old cache → stale).
+_CHROMA_PATH = os.path.join(os.path.dirname(__file__), "chroma_db")
+
+def _chroma_mtime() -> float:
+    try:
+        return os.path.getmtime(_CHROMA_PATH)
+    except OSError:
+        return 0.0
+
 @st.cache_resource
-def get_vector_store():
+def get_vector_store(mtime: float):
     with st.spinner("Loading knowledge base..."):
         return load_vector_store()
 
-db = get_vector_store()
+db = get_vector_store(_chroma_mtime())
 
 # ── Header ─────────────────────────────────────────────────────────────────────
 st.title("💳 Credit Chatbot")
