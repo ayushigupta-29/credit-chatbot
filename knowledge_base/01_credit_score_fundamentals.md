@@ -47,6 +47,8 @@ How much of your available credit limit are you using?
 
 ### 3. Length of Credit History (15% weightage)
 How long have you had credit accounts?
+- A longer credit history improves your score; a shorter history hurts it — this is completely independent of payment history
+- Do not confuse credit age with payment history — they are two separate factors
 - Older accounts positively impact your score
 - Closing your oldest credit card can hurt your score
 - The average age of all your accounts matters

@@ -4,6 +4,8 @@ Credit Chatbot — Streamlit Web UI
 Run with:  streamlit run app.py
 """
 
+import uuid
+
 import streamlit as st
 import streamlit.components.v1 as components
 import sys
@@ -11,6 +13,12 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 from rag_pipeline import load_vector_store, ask_stream
+from db import load_db, save_db, get_user_snapshot, get_segment_patterns, save_consent, build_user_context
+
+CONSENT_TEXT = (
+    "I consent to Bachatt accessing my credit bureau data on file to provide "
+    "personalised answers in this session."
+)
 
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -66,6 +74,49 @@ if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 if "auto_question" not in st.session_state:
     st.session_state.auto_question = ""
+if "session_id" not in st.session_state:
+    st.session_state.session_id = str(uuid.uuid4())
+
+# Personal data session state
+if "user_phone" not in st.session_state:
+    st.session_state.user_phone = None        # phone string once logged in
+if "user_consented" not in st.session_state:
+    st.session_state.user_consented = None    # None=not asked, True=yes, False=no
+if "user_context" not in st.session_state:
+    st.session_state.user_context = None      # dict from build_user_context, or None
+
+
+# ── Consent dialog ─────────────────────────────────────────────────────────────
+@st.dialog("Access your credit data")
+def show_consent_dialog(phone: str):
+    st.info(CONSENT_TEXT)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Yes, I consent", type="primary", use_container_width=True):
+            # Resolve user context before saving consent
+            conn = load_db()
+            ctx = build_user_context(phone, conn)
+            if ctx is None:
+                # User not in DB — inject segment patterns as probable causes
+                patterns = get_segment_patterns(conn)
+                ctx = {"not_found": True, "patterns": patterns}
+            save_consent(phone, "credit_data_access", True, CONSENT_TEXT, st.session_state.session_id, conn)
+            save_db(conn)
+            conn.close()
+            st.session_state.user_consented = True
+            st.session_state.user_context = ctx
+            st.rerun()
+    with col2:
+        if st.button("No, thanks", use_container_width=True):
+            conn = load_db()
+            save_consent(phone, "credit_data_access", False, CONSENT_TEXT, st.session_state.session_id, conn)
+            save_db(conn)
+            conn.close()
+            st.session_state.user_consented = False
+            st.session_state.user_context = None
+            st.rerun()
+
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -85,6 +136,43 @@ with st.sidebar:
     )
 
     st.divider()
+
+    # ── Phone login ────────────────────────────────────────────────────────────
+    st.markdown("**Your credit data**")
+    if st.session_state.user_phone is None:
+        phone_input = st.text_input(
+            "Enter your phone number",
+            placeholder="10-digit mobile number",
+            key="phone_input",
+            label_visibility="collapsed",
+        )
+        if st.button("Login", key="login_btn", use_container_width=True):
+            phone = phone_input.strip() if phone_input else ""
+            if phone:
+                st.session_state.user_phone = phone
+                st.session_state.user_consented = None  # trigger consent dialog
+                st.rerun()
+            else:
+                st.warning("Please enter a phone number.")
+    else:
+        masked = "••••••" + st.session_state.user_phone[-4:]
+        if st.session_state.user_consented is True:
+            if st.session_state.user_context and st.session_state.user_context.get("not_found"):
+                st.caption(f"Logged in: {masked} (data not on file)")
+            else:
+                st.caption(f"Logged in: {masked} (personalised)")
+        elif st.session_state.user_consented is False:
+            st.caption(f"Logged in: {masked} (general answers only)")
+        else:
+            st.caption(f"Logged in: {masked}")
+
+        if st.button("Logout", key="logout_btn", use_container_width=True):
+            st.session_state.user_phone = None
+            st.session_state.user_consented = None
+            st.session_state.user_context = None
+            st.rerun()
+
+    st.divider()
     st.markdown("**Example questions:**")
 
     # Clicking an example auto-submits it as a question (like ChatGPT)
@@ -100,6 +188,10 @@ with st.sidebar:
         st.session_state.auto_question = ""
         st.rerun()
     st.caption("Powered by Ollama + RAG")
+
+# ── Show consent dialog when user just logged in ───────────────────────────────
+if st.session_state.user_phone and st.session_state.user_consented is None:
+    show_consent_dialog(st.session_state.user_phone)
 
 # ── Load vector store ──────────────────────────────────────────────────────────
 @st.cache_resource
@@ -142,6 +234,13 @@ if question:
     else:
         st.session_state.messages.append({"role": "user", "content": question})
 
+        # Pass personal context only when user has consented
+        active_user_context = (
+            st.session_state.user_context
+            if st.session_state.user_consented is True
+            else None
+        )
+
         with stream_slot.container():
             with st.chat_message("user"):
                 st.markdown(question)
@@ -151,7 +250,13 @@ if question:
                 sources = []
 
                 def token_generator():
-                    for chunk in ask_stream(db, question, st.session_state.chat_history, model=model_choice):
+                    for chunk in ask_stream(
+                        db,
+                        question,
+                        st.session_state.chat_history,
+                        model=model_choice,
+                        user_context=active_user_context,
+                    ):
                         if isinstance(chunk, list):
                             sources.extend(chunk)
                         else:

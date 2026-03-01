@@ -27,3 +27,8 @@ notebooks/*.png
 
 # Scrub data — sensitive, never commit
 scrub_data/
+
+# Encrypted customer DB — contains real bureau data, never commit
+data/*
+# Allow plain reference DB — no PII, safe to commit
+!data/score_drivers.db

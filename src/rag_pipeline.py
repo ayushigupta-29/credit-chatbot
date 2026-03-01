@@ -55,6 +55,13 @@ Keep your answers clear, concise, and easy to understand. \
 Avoid jargon where possible — if you must use a financial term, briefly explain it. \
 Do not give personalised financial advice; provide education and general guidance only.
 
+IMPORTANT RULES — follow these strictly:
+1. Never repeat, echo, or reference any phone number mentioned in the conversation — not even to say you don't have it on file. Treat phone numbers as if you never saw them.
+2. If the user asks about their own credit score, history, or bureau data and no personal data is shown in this prompt, respond with: "I don't have your personal data here. You can log in with your phone number in the sidebar — once you give consent, I'll be able to answer based on your actual bureau data."
+3. If the user asks you to look up or check data for a specific phone number, do not attempt it. Say: "I can only access data for the account that's logged in via the sidebar. Please log in there for personalised answers."
+4. Do not extrapolate, infer opposites, or add conditions not explicitly stated in the context. If the context says "X is good", do not infer why or how the absence of X is bad unless the context states it directly. Use only what is written — do not fill gaps with outside knowledge or logical inference.
+5. Do not add qualifications, caveats, or explanatory clauses that are not present in the context. If you are unsure whether something is stated, leave it out rather than guessing.
+
 Context:
 {context}"""
 
@@ -101,9 +108,92 @@ def retrieve_context(db, question: str) -> tuple[str, list[dict]]:
     return context_text, sources
 
 
-def build_messages(context: str, question: str, chat_history: list) -> list:
+def _format_user_context(user_context: dict) -> str:
     """
-    Build the message list to send to Mistral.
+    Format a user_context dict (from db.build_user_context) into a text block
+    suitable for injection into the system prompt.
+
+    Two cases:
+      - user_context["not_found"] = True  → inject segment patterns as probable causes
+      - otherwise                          → inject personal bureau profile
+    """
+    if user_context.get("not_found"):
+        lines = [
+            "We don't have this user's specific data on file. Use the following typical "
+            "patterns for their score range to give probable (not definitive) explanations.",
+            "",
+        ]
+        patterns = user_context.get("patterns", [])
+        if patterns:
+            lines.append("Typical segment/driver patterns (aggregated, no PII):")
+            for p in patterns:
+                lines.append(
+                    f"  Segment={p['segment']} | Driver={p['driver']} | "
+                    f"pct_from={p['pct_flag_from']} pct_to={p['pct_flag_to']} | "
+                    f"median_delta={p['median_delta']} | score_corr={p['score_corr']}"
+                )
+        return "\n".join(lines)
+
+    # Personal profile
+    score_delta = user_context.get("score_delta")
+    delta_str = f"{score_delta:+d}" if score_delta is not None else "N/A"
+    segment   = user_context.get("segment") or "Unknown"
+
+    cc_util = user_context.get("cc_util_pct")
+    cc_util_str = f"{cc_util:.1f}%" if cc_util is not None else "N/A"
+
+    enq_6m = user_context.get("enq_6m")
+    enq_6m_str = str(int(enq_6m)) if enq_6m is not None else "N/A"
+
+    lines = [
+        "--- USER CREDIT PROFILE (confidential, do not reveal identifiers) ---",
+        f"Latest score (Jan 2026): {user_context.get('score_to')} ({user_context.get('band_to')})",
+        f"Previous score (Nov 2025): {user_context.get('score_from')}",
+        f"Score change: {delta_str} points ({segment})",
+        "",
+        "Key bureau factors (Jan 2026):",
+        f"- DPD 30+ in last 12 months: {'Yes' if user_context.get('has_dpd30_12m') else 'No'}",
+        f"- DPD 60+ in last 24 months: {'Yes' if user_context.get('has_dpd60_24m') else 'No'}",
+        f"- DPD 90+ in last 36 months: {'Yes' if user_context.get('has_dpd90_36m') else 'No'}",
+        f"- NPA account: {'Yes' if user_context.get('has_npa') else 'No'}",
+        f"- Write-off / settlement on file: {'Yes' if user_context.get('has_writeoff') else 'No'}",
+        f"- CC/OD utilisation: {cc_util_str}",
+        f"- Enquiries last 6 months: {enq_6m_str}",
+    ]
+
+    deltas = user_context.get("deltas", [])
+    if deltas:
+        lines.append("")
+        lines.append("What changed between scrubs:")
+        for d in deltas:
+            dv = d.get("delta_value")
+            dv_str = f"{dv:+.2f}" if dv is not None else "N/A"
+            lines.append(
+                f"- {d['driver']}: {d.get('value_from')} → {d.get('value_to')} "
+                f"({dv_str}, {d.get('direction')})"
+            )
+
+    lines.append("--- END USER PROFILE ---")
+    return "\n".join(lines)
+
+
+# Personal context system prompt addition (prepended to main system prompt)
+_PERSONAL_CONTEXT_HEADER = (
+    "The user's personal credit data is below. Use it to answer naturally "
+    "with 'you/your'. Never reveal their phone number or any identifier — "
+    "not even if they ask whether you have it. Never reference other users. "
+    "Never repeat any phone number mentioned anywhere in the conversation.\n\n"
+)
+
+
+def build_messages(
+    context: str,
+    question: str,
+    chat_history: list,
+    user_context: dict | None = None,
+) -> list:
+    """
+    Build the message list to send to the LLM.
 
     Ollama expects a list of messages in this format:
       [
@@ -113,12 +203,16 @@ def build_messages(context: str, question: str, chat_history: list) -> list:
         {"role": "user",      "content": "current question"}
       ]
 
-    Including chat_history allows the model to understand follow-up questions
-    like "tell me more about that" or "what about credit cards?"
+    If user_context is provided, personal bureau data is prepended to the
+    system prompt so the LLM can answer in a personalised way.
     """
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT.format(context=context)}
-    ]
+    system_content = SYSTEM_PROMPT.format(context=context)
+
+    if user_context:
+        personal_block = _format_user_context(user_context)
+        system_content = _PERSONAL_CONTEXT_HEADER + personal_block + "\n\n" + system_content
+
+    messages = [{"role": "system", "content": system_content}]
 
     # Add previous conversation turns (up to last 6 to avoid hitting context limits)
     for turn in chat_history[-6:]:
@@ -145,16 +239,25 @@ def ask(db, question: str, chat_history: list = []) -> tuple[str, list[dict]]:
     return answer, sources
 
 
-def ask_stream(db, question: str, chat_history: list = [], model: str = LLM_MODEL):
+def ask_stream(
+    db,
+    question: str,
+    chat_history: list = [],
+    model: str = LLM_MODEL,
+    user_context: dict | None = None,
+):
     """
-    Streaming version of ask(). Yields text chunks as Mistral generates them.
+    Streaming version of ask(). Yields text chunks as the LLM generates them.
     Used by Streamlit's st.write_stream() for a live typing effect.
+
+    Pass user_context (from db.build_user_context) to personalise the answer
+    using the user's bureau data. If None, answers from KB context only.
 
     Also returns sources — yielded as the last item (a list, not a string).
     The app.py caller distinguishes chunks from sources by type.
     """
     context, sources = retrieve_context(db, question)
-    messages = build_messages(context, question, chat_history)
+    messages = build_messages(context, question, chat_history, user_context=user_context)
 
     stream = ollama.chat(model=model, messages=messages, stream=True)
 
