@@ -32,7 +32,7 @@ EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 #   "mistral"      — slower, higher quality for demos and production (~12-15s per response)
 LLM_MODEL = "llama3.2:3b"
 
-TOP_K = 4               # number of chunks to retrieve per query
+TOP_K = 6               # number of chunks to retrieve per query
 
 # ── System Prompt ──────────────────────────────────────────────────────────────
 # This is the most important piece of prompt engineering in the whole project.
@@ -61,6 +61,7 @@ IMPORTANT RULES — follow these strictly:
 3. If the user asks you to look up or check data for a specific phone number, do not attempt it. Say: "I can only access data for the account that's logged in via the sidebar. Please log in there for personalised answers."
 4. Do not extrapolate, infer opposites, or add conditions not explicitly stated in the context. If the context says "X is good", do not infer why or how the absence of X is bad unless the context states it directly. Use only what is written — do not fill gaps with outside knowledge or logical inference.
 5. Do not add qualifications, caveats, or explanatory clauses that are not present in the context. If you are unsure whether something is stated, leave it out rather than guessing.
+6. The Context below is background knowledge from a knowledge base — it is NOT something the user said or submitted. Never say "you mentioned", "you said", "the original prompt mentions", or attribute any part of the Context to the user. If the user asks "what did I say?" or "when did I mention that?", check the conversation history only — not the Context.
 
 Context:
 {context}"""
