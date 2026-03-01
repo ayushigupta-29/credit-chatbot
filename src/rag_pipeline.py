@@ -62,7 +62,7 @@ IMPORTANT RULES — follow these strictly:
 4. Do not extrapolate, infer opposites, or add conditions not explicitly stated in the context. If the context says "X is good", do not infer why or how the absence of X is bad unless the context states it directly. Use only what is written — do not fill gaps with outside knowledge or logical inference.
 5. Do not add qualifications, caveats, or explanatory clauses that are not present in the context. If you are unsure whether something is stated, leave it out rather than guessing.
 6. The Context below is background knowledge from a knowledge base — it is NOT something the user said or submitted. Never say "you mentioned", "you said", "the original prompt mentions", or attribute any part of the Context to the user. If the user asks "what did I say?" or "when did I mention that?", check the conversation history only — not the Context.
-7. Answer directly and naturally. Never use any phrase that references internal context or data sources, such as: "according to what's mentioned here", "based on the context", "as mentioned in the context", "the context states", "according to the information provided", "based on the information provided", "as provided earlier", "the information shows", or similar. Just answer as if the knowledge is your own. For personal data questions (score, history, etc.), say "your score is X" — not "according to the data, your score is X".
+7. Answer directly and naturally. Never reference or acknowledge that you are reading from a context, knowledge base, or any data source — not with any phrasing. Do not say things like "according to...", "based on...", "as mentioned in...", "the context states", "the information provided", "as provided", "I was referring to", or any similar phrase. Speak as if the knowledge is your own. For personal data, say "your score is X" — never "according to your data, your score is X".
 
 Context:
 {context}"""
@@ -166,24 +166,41 @@ def _format_user_context(user_context: dict) -> str:
     deltas = user_context.get("deltas", [])
     if deltas:
         lines.append("")
-        lines.append("What changed between scrubs:")
+        lines.append("What changed between Nov 2025 and Jan 2026:")
         for d in deltas:
-            dv = d.get("delta_value")
-            dv_str = f"{dv:+.2f}" if dv is not None else "N/A"
-            lines.append(
-                f"- {d['driver']}: {d.get('value_from')} → {d.get('value_to')} "
-                f"({dv_str}, {d.get('direction')})"
-            )
+            label = _DRIVER_LABELS.get(d["driver"], d["driver"])
+            v_from = d.get("value_from")
+            v_to   = d.get("value_to")
+            direction = d.get("direction", "")
+            lines.append(f"- {label}: {v_from} → {v_to} ({direction})")
 
     lines.append("--- END USER PROFILE ---")
     return "\n".join(lines)
 
 
+# ── Human-readable labels for driver keys ──────────────────────────────────────
+_DRIVER_LABELS = {
+    "has_dpd30_12m":     "DPD 30+ flag (last 12 months)",
+    "has_dpd60_24m":     "DPD 60+ flag (last 24 months)",
+    "has_dpd90_36m":     "DPD 90+ flag (last 36 months)",
+    "has_npa":           "NPA account flag",
+    "has_writeoff":      "Write-off / settlement flag",
+    "cc_util_pct":       "CC/OD utilisation (%)",
+    "enq_6m":            "Enquiries in last 6 months",
+    "enq_12m":           "Enquiries in last 12 months",
+    "num_dpd30_12m":     "Number of DPD 30+ incidents (12 months)",
+    "total_accounts":    "Total credit accounts",
+    "active_accounts":   "Active credit accounts",
+    "total_outstanding": "Total outstanding balance (₹)",
+}
+
 # Personal context system prompt addition (prepended to main system prompt)
 _PERSONAL_CONTEXT_HEADER = (
     "The user's personal credit data is below. Use it to answer naturally "
-    "with 'you/your'. Never reveal their phone number or any identifier — "
-    "not even if they ask whether you have it. Never reference other users. "
+    "with 'you/your'. Present all values in plain English — never echo raw "
+    "field names, internal keys, or technical formats from this data block. "
+    "Never reveal their phone number or any identifier — not even if they ask "
+    "whether you have it. Never reference other users. "
     "Never repeat any phone number mentioned anywhere in the conversation.\n\n"
 )
 
