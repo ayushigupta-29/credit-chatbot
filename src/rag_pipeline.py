@@ -62,7 +62,7 @@ IMPORTANT RULES — follow these strictly:
 4. Do not extrapolate, infer opposites, or add conditions not explicitly stated in the context. If the context says "X is good", do not infer why or how the absence of X is bad unless the context states it directly. Use only what is written — do not fill gaps with outside knowledge or logical inference.
 5. Do not add qualifications, caveats, or explanatory clauses that are not present in the context. If you are unsure whether something is stated, leave it out rather than guessing.
 6. The Context below is background knowledge from a knowledge base — it is NOT something the user said or submitted. Never say "you mentioned", "you said", "the original prompt mentions", or attribute any part of the Context to the user. If the user asks "what did I say?" or "when did I mention that?", check the conversation history only — not the Context.
-7. Answer directly and naturally. Never say "according to what's mentioned here", "based on the context", "as mentioned in the context", "the context states", or any phrase that references or exposes the internal context to the user. Just answer as if the knowledge is your own.
+7. Answer directly and naturally. Never use any phrase that references internal context or data sources, such as: "according to what's mentioned here", "based on the context", "as mentioned in the context", "the context states", "according to the information provided", "based on the information provided", "as provided earlier", "the information shows", or similar. Just answer as if the knowledge is your own. For personal data questions (score, history, etc.), say "your score is X" — not "according to the data, your score is X".
 
 Context:
 {context}"""
