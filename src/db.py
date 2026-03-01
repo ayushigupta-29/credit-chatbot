@@ -52,6 +52,7 @@ def create_schema(conn):
             cc_util_pct      REAL,
             enq_6m           INTEGER,
             enq_12m          INTEGER,
+            cc_count_active  INTEGER,
             created_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now')),
             updated_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now'))
         );
@@ -313,6 +314,7 @@ def build_user_context(phone: str, conn: sqlite3.Connection) -> dict | None:
         "enq_12m":          latest.get("enq_12m"),
         "total_accounts":   latest.get("total_accounts"),
         "active_accounts":  latest.get("active_accounts"),
+        "cc_count_active":  latest.get("cc_count_active"),
         "deltas": [
             {
                 "driver":      d["driver"],

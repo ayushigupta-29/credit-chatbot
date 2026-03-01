@@ -109,8 +109,9 @@ def populate_snapshots(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
                     (customer_phone, scrub_date, score, band,
                      total_accounts, active_accounts,
                      has_dpd30_12m, has_dpd60_24m, has_dpd90_36m,
-                     has_npa, has_writeoff, cc_util_pct, enq_6m, enq_12m)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                     has_npa, has_writeoff, cc_util_pct, enq_6m, enq_12m,
+                     cc_count_active)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     phone, SCRUB_FROM,
@@ -126,6 +127,7 @@ def populate_snapshots(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
                     _nan_to_none(row.get("cc_util_pct_n25")),
                     _nan_to_none(row.get("enq_6m_n25")),
                     _nan_to_none(row.get("enq_12m_n25")),
+                    _nan_to_none(row.get("cc_count_active_n25")),
                 ),
             )
             rows_inserted += 1
@@ -139,8 +141,9 @@ def populate_snapshots(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
                     (customer_phone, scrub_date, score, band,
                      total_accounts, active_accounts,
                      has_dpd30_12m, has_dpd60_24m, has_dpd90_36m,
-                     has_npa, has_writeoff, cc_util_pct, enq_6m, enq_12m)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                     has_npa, has_writeoff, cc_util_pct, enq_6m, enq_12m,
+                     cc_count_active)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     phone, SCRUB_TO,
@@ -156,6 +159,7 @@ def populate_snapshots(df: pd.DataFrame, conn: sqlite3.Connection) -> int:
                     _nan_to_none(row.get("cc_util_pct_j26")),
                     _nan_to_none(row.get("enq_6m_j26")),
                     _nan_to_none(row.get("enq_12m_j26")),
+                    _nan_to_none(row.get("cc_count_active_j26")),
                 ),
             )
             rows_inserted += 1

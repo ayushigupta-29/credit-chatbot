@@ -166,6 +166,8 @@ def _format_user_context(user_context: dict) -> str:
         f"- Enquiries last 12 months: {str(int(user_context['enq_12m'])) if user_context.get('enq_12m') is not None else 'N/A'}",
         f"- Total credit accounts (tradelines): {user_context.get('total_accounts') or 'N/A'}",
         f"- Active credit accounts: {user_context.get('active_accounts') or 'N/A'}",
+        f"- Active credit cards: {user_context.get('cc_count_active') or 'N/A'}",
+        f"- Active loans (derived): {(user_context['active_accounts'] - user_context['cc_count_active']) if user_context.get('active_accounts') is not None and user_context.get('cc_count_active') is not None else 'N/A'}",
     ]
 
     deltas = user_context.get("deltas", [])
