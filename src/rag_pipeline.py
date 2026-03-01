@@ -163,6 +163,9 @@ def _format_user_context(user_context: dict) -> str:
         f"- Write-off / settlement on file: {'Yes' if user_context.get('has_writeoff') else 'No'}",
         f"- CC/OD utilisation: {cc_util_str}",
         f"- Enquiries last 6 months: {enq_6m_str}",
+        f"- Enquiries last 12 months: {str(int(user_context['enq_12m'])) if user_context.get('enq_12m') is not None else 'N/A'}",
+        f"- Total credit accounts (tradelines): {user_context.get('total_accounts') or 'N/A'}",
+        f"- Active credit accounts: {user_context.get('active_accounts') or 'N/A'}",
     ]
 
     deltas = user_context.get("deltas", [])

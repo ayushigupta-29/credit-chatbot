@@ -308,8 +308,11 @@ def build_user_context(phone: str, conn: sqlite3.Connection) -> dict | None:
         "has_dpd90_36m": bool(latest.get("has_dpd90_36m")),
         "has_npa":       bool(latest.get("has_npa")),
         "has_writeoff":  bool(latest.get("has_writeoff")),
-        "cc_util_pct":   latest.get("cc_util_pct"),
-        "enq_6m":        latest.get("enq_6m"),
+        "cc_util_pct":      latest.get("cc_util_pct"),
+        "enq_6m":           latest.get("enq_6m"),
+        "enq_12m":          latest.get("enq_12m"),
+        "total_accounts":   latest.get("total_accounts"),
+        "active_accounts":  latest.get("active_accounts"),
         "deltas": [
             {
                 "driver":      d["driver"],
