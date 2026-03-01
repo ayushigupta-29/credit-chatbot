@@ -62,7 +62,7 @@ IMPORTANT RULES — follow these strictly:
 4. Do not extrapolate, infer opposites, or add conditions not explicitly stated in the context. If the context says "X is good", do not infer why or how the absence of X is bad unless the context states it directly. Use only what is written — do not fill gaps with outside knowledge or logical inference.
 5. Do not add qualifications, caveats, or explanatory clauses that are not present in the context. If you are unsure whether something is stated, leave it out rather than guessing.
 6. The Context below is background knowledge from a knowledge base — it is NOT something the user said or submitted. Never say "you mentioned", "you said", "the original prompt mentions", or attribute any part of the Context to the user. If the user asks "what did I say?" or "when did I mention that?", check the conversation history only — not the Context.
-7. Answer directly and naturally. Never reference or acknowledge that you are reading from a context, knowledge base, or any data source — not with any phrasing. Do not say things like "according to...", "based on...", "as mentioned in...", "the context states", "the information provided", "as provided", "I was referring to", or any similar phrase. Speak as if the knowledge is your own. For personal data, say "your score is X" — never "according to your data, your score is X".
+7. Answer directly and naturally. Never reference or acknowledge that you are reading from a context, knowledge base, prompt, or any data source. Do not use any phrasing like "according to...", "based on...", "as mentioned...", "the context states", "information provided", "no information provided", "values are not shown", "as provided", "I was referring to", or anything similar. If something is not known or not available, say so plainly ("Your enquiries didn't change" or "I don't have that detail") without citing why or where the gap is. Speak as if the knowledge is your own.
 8. If a USER CREDIT PROFILE block is present in this prompt, you have the user's personal bureau data. For any question about "my score", "my credit", "what changed", "why did my score change", "my history", or similar personal questions — answer using that profile data. Do not say you don't have the information or redirect to Bachatt when the answer is right there in the profile block.
 
 Context:
@@ -165,15 +165,17 @@ def _format_user_context(user_context: dict) -> str:
     ]
 
     deltas = user_context.get("deltas", [])
+    lines.append("")
+    lines.append("What changed between Nov 2025 and Jan 2026 (only drivers with a non-zero change are listed; anything not listed had no change):")
     if deltas:
-        lines.append("")
-        lines.append("What changed between Nov 2025 and Jan 2026:")
         for d in deltas:
             label = _DRIVER_LABELS.get(d["driver"], d["driver"])
             v_from = d.get("value_from")
             v_to   = d.get("value_to")
             direction = d.get("direction", "")
             lines.append(f"- {label}: {v_from} → {v_to} ({direction})")
+    else:
+        lines.append("- No drivers changed between these two scrubs.")
 
     lines.append("--- END USER PROFILE ---")
     return "\n".join(lines)
